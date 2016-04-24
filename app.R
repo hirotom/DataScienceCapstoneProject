@@ -27,16 +27,23 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
                ),
                mainPanel(
                   tabsetPanel(type="tabs",
-                     tabPanel("Input",
+                     tabPanel("Main",
                         column(12, align="center",
                            HTML("<p>&nbsp;<p>&nbsp;<p>"),
                            textInput("inputText", "Please type your text input here:", value = "", width = 800, placeholder = NULL),
                            HTML("hint: add space after the last word to predict next word"),
+                           htmlOutput("predictionType"),
                            htmlOutput("prediction")
                            
                         )
                      ),
-                     tabPanel("Details",
+                     tabPanel("Settings",
+                        column(12, align="left",
+                            HTML("<p>&nbsp;<p>&nbsp;<p>"),
+                            sliderInput("numberPredict", "Enter maximum number of words to predict:", min=1, max=20, value=10, step=1)
+                        )
+                     ),
+                     tabPanel("Prediction Details",
                         column(12, align="left",
                             h4("Prediction source:"),
                             htmlOutput("source"),
@@ -46,12 +53,6 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
                             hr(),
                             h4("Predicted word details:"),
                             dataTableOutput("prediction2")
-                        )
-                     ),
-                     tabPanel("Settings",
-                        column(12, align="left",
-                            HTML("<p>&nbsp;<p>&nbsp;<p>"),
-                            sliderInput("numberPredict", "Enter maximum number of words to predict:", min=1, max=20, value=10, step=1)
                         )
                      )
                   )
@@ -99,6 +100,11 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
                   ),
                   tabPanel("App Flow",
                       h3("Introduction"),
+                      HTML("The App is designed to perform prediction as fast as possible by loading N-grams with pre-calculated probabilities.<p>"),
+                      HTML("The App then simply clean the user input and perform match against the N-Grams, 
+                           backing-off from highest order N-Gram to lower N-grams until the requested number of matches are found.<p>"),
+                      HTML("One unique feature is that the prediction is used to either predict the next whole word, or to auto-complete the word being typed,
+                           depending on whether the inputted text ends with a space or not."),
                       hr(),
                       
                       h3("Process Flow"),
@@ -130,8 +136,19 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
                   includeHTML("report.html")
                ),
                tabPanel("Final Presentation",
-                  h5("Final presentation is a 5 slide deck intended to be a pitch for this app."),
-                  hr()
+                  column(12, align="center",
+                     HTML("<h5>Final presentation is a 5 slide deck intended to be a pitch for this App.</h5>Original can be seen from <a href='http://rpubs.com/hmiyake/DataScienceCapstoneFinal' target='_blank'>here</a>"),
+                     hr(),
+                     img(src="Presentation1of5.png"),
+                     hr(),
+                     img(src="Presentation2of5.png"),
+                     hr(),
+                     img(src="Presentation3of5.png"),
+                     hr(),
+                     img(src="Presentation4of5.png"),
+                     hr(),
+                     img(src="Presentation5of5.png")
+                  )
                )
             )
 
@@ -175,23 +192,29 @@ server <- shinyServer(function(input, output) {
          if (grepl("*[[:space:]]$", input$inputText)) {
             # input text ends with a space, so predict next word
             df.predict <- fun.predictnext(input$inputText, autocomplete=FALSE, n=input$numberPredict)
-            type <- "Next word prediction"
+            type <- "Next word"
             
          } else {
             # input text does not end with a space, so predict auto-complete word
             df.predict <- fun.predictnext(input$inputText, autocomplete=TRUE, n=input$numberPredict)
             type <- "Auto-complete"
          }
+         
          df.predict <- df.predict[! is.na(df.predict$Term),]
          df.predict$Row <- row.names(df.predict)
          df.predict <- df.predict[, c("Row", "Term.3", "Term.2", "Term.1", "Term", "Source","Probability")]
          ptm2 <- proc.time()
          a <- ptm2 - ptm
          output$prediction2 <- renderDataTable(df.predict)
+         
+         df.predict <- df.predict[1:min(nrow(df.predict), input$numberPredict),]
+         df.predict <- df.predict[! is.na(df.predict$Term),]
          txtPredict = paste0("<code>", df.predict$Term, "</code>")
          txtPredict = paste0(txtPredict, sep = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", collapse="")
+         
          output$status2 <- renderUI({HTML(paste0("<p>Input: ", input$inputText, "<p>Mode: ", type, "<p>Computation time: ", round(as.numeric(a[3]),2), " seconds</p>"))})
-         HTML(paste0("<p>&nbsp;<p>", txtPredict))
+         output$predictionType <- renderUI({HTML(paste0("<p>&nbsp;<p><b>", type, " prediction:</b>"))})
+         HTML(paste0(txtPredict))
       }
       
    })
