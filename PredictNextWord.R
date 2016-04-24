@@ -21,9 +21,12 @@ fun.predictnext <- function(input, autocomplete = FALSE, n=5) {
    df.input <- data.frame(a=str_split(input, " "), stringsAsFactors = FALSE)
    colnames(df.input)="Term"
    
-   df.predict <- data.frame(Term1 = character(),
-                            NGramLevel = integer(),
-                            Prob_KN = numeric(),
+   df.predict <- data.frame('Term.3'    = character(),
+                            'Term.2'    = character(),
+                            'Term.1'    = character(),
+                            'Term'      = character(),
+                            Source      = integer(),
+                            Probability = numeric(),
                             stringsAsFactors = FALSE)
    
    if (autocomplete == FALSE) {
@@ -40,9 +43,12 @@ fun.predictnext <- function(input, autocomplete = FALSE, n=5) {
       if (autocomplete==TRUE) {
          df.4predict <- df.4predict[grepl(df.input$Term[nrow(df.input)], df.4predict$Term1),]
       }
-      df.predict <- rbind(df.predict, data.frame(Term1=df.4predict$Term1, 
-                                                 NGramLevel=rep(4, nrow(df.4predict)),
-                                                 Prob_KN=df.4predict$Prob_KN, stringsAsFactors = FALSE) )
+      df.predict <- rbind(df.predict, data.frame('Term.3'    = df.4predict$Term4, 
+                                                 'Term.2'    = df.4predict$Term3, 
+                                                 'Term.1'    = df.4predict$Term2, 
+                                                 'Term'      = df.4predict$Term1, 
+                                                 Source      = rep("4-Gram", nrow(df.4predict)),
+                                                 Probability = df.4predict$Prob_KN, stringsAsFactors = FALSE) )
    }
    
    # 3-gram prediction
@@ -52,11 +58,14 @@ fun.predictnext <- function(input, autocomplete = FALSE, n=5) {
       if (autocomplete==TRUE) {
          df.3predict <- df.3predict[grepl(df.input$Term[nrow(df.input)], df.3predict$Term1),]
       }
-      df.3predict <- df.3predict[! df.3predict$Term1 %in% df.predict$Term1,]
-      df.predict <- rbind(df.predict, data.frame(Term1=df.3predict$Term1, 
-                                                 NGramLevel=rep(3, nrow(df.3predict)),
-                                                 Prob_KN=df.3predict$Prob_KN, stringsAsFactors = FALSE) )
-      
+      df.3predict <- df.3predict[! df.3predict$Term1 %in% df.predict$Term,]
+      df.predict <- rbind(df.predict, data.frame('Term.3'    = rep("", nrow(df.3predict)), 
+                                                 'Term.2'    = df.3predict$Term3, 
+                                                 'Term.1'    = df.3predict$Term2, 
+                                                 'Term'      = df.3predict$Term1, 
+                                                 Source      = rep("3-Gram", nrow(df.3predict)),
+                                                 Probability = df.3predict$Prob_KN, stringsAsFactors = FALSE) )
+
    }
    
    # 2-gram prediction
@@ -65,20 +74,26 @@ fun.predictnext <- function(input, autocomplete = FALSE, n=5) {
       if (autocomplete==TRUE) {
          df.2predict <- df.2predict[grepl(df.input$Term[nrow(df.input)], df.2predict$Term1),]
       }
-      df.2predict <- df.2predict[! df.2predict$Term1 %in% df.predict$Term1,]
-      df.predict <- rbind(df.predict, data.frame(Term1=df.2predict$Term1, 
-                                                 NGramLevel=rep(2, nrow(df.2predict)),
-                                                 Prob_KN=df.2predict$Prob_KN, stringsAsFactors = FALSE) )
+      df.2predict <- df.2predict[! df.2predict$Term1 %in% df.predict$Term,]
+      df.predict <- rbind(df.predict, data.frame('Term.3'    = rep("", nrow(df.2predict)), 
+                                                 'Term.2'    = rep("", nrow(df.2predict)), 
+                                                 'Term.1'    = df.2predict$Term2, 
+                                                 'Term'      = df.2predict$Term1, 
+                                                 Source      = rep("2-Gram", nrow(df.2predict)),
+                                                 Probability = df.2predict$Prob_KN, stringsAsFactors = FALSE) )
    }
    
    # 1-gram prediction (for autocomplete only)
    if (nrow(df.input) >=1  & nrow(df.predict) < (2*n) & autocomplete==TRUE) {
       df.1predict <- df.1gram[grepl(df.input$Term[nrow(df.input)], df.1gram$Term1),]
       df.1predict <- df.1predict[! df.1predict$Term1 %in% df.predict$Term1,]
-      df.predict <- rbind(df.predict, data.frame(Term1=df.1predict$Term1, 
-                                                 NGramLevel=rep(1, nrow(df.1predict)),
-                                                 Prob_KN=df.1predict$Prob_KN, stringsAsFactors = FALSE) )
+      df.predict <- rbind(df.predict, data.frame('Term.3'    = rep("", nrow(df.1predict)), 
+                                                 'Term.2'    = rep("", nrow(df.1predict)), 
+                                                 'Term.1'    = rep("", nrow(df.1predict)), 
+                                                 'Term'      = df.1predict$Term1, 
+                                                 Source      = rep("1-Gram", nrow(df.1predict)),
+                                                 Probability = df.1predict$Prob_KN, stringsAsFactors = FALSE) )
    }
    
-   return(df.predict[1:n,])
+   return(df.predict)
 }

@@ -31,12 +31,16 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
                         column(12, align="center",
                            HTML("<p>&nbsp;<p>&nbsp;<p>"),
                            textInput("inputText", "Please type your text input here:", value = "", width = 800, placeholder = NULL),
+                           HTML("hint: add space after the last word to predict next word"),
                            htmlOutput("prediction")
                            
                         )
                      ),
                      tabPanel("Details",
                         column(12, align="left",
+                            h4("Prediction source:"),
+                            htmlOutput("source"),
+                            hr(),
                             h4("Prediction performance:"),
                             htmlOutput("status2"),
                             hr(),
@@ -68,50 +72,52 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
                      HTML("Prediction algorith is time-consuming and thus performed outside of this App to minimize performance for the UI.<p>"),
                      hr(),
                      
-                     h3("Flow"),
+                     h3("Process Flow"),
                      img(src="ModelFlow.png"),
                      hr(),
                      
                      h3("Description"),
-                     h4("Input:"),
+                     h4(":: Input ::"),
                      HTML("Algorithm is trained from 5% random sample of corpus from news, blogs, and twitters provided by HC Corpora.  
                           Sample size was optimized to balance App load time and time required to pre-calculate Kneser-Key probabiliy.
-                          At 5% sample size, the App load time is around 5 seconds, while pre-calculation time is around 4 days (using Intel i5-4250U processor)."),
-                     h4("Condition:"),
+                          At 5% sample size, the App load time is around 7 seconds."),
+                     h4(":: Condition ::"),
                      h5("Sampled data is conditioned by changing to lowercase, removing word to ignore, and remove punctions (excluding apostrophe)."),
                      HTML("Ignore words are connecting words: <code>a</code>, <code>an</code>,  <code>the</code>, 
                            <code>and</code>, <code>to</code>, <code>of</code>, <code>at</code>, 
                            <code>in</code>, <code>on</code>, and <code>from</code>."),
                      HTML("Consequently, these words will not be produced as output of the prediction."),
-                     h4("Generate N-Gram"),
-                     HTML("<h5>1, 2, 3, and 4 grams are produced using R package <code>quanteda</code>."),
-                     h4("Pre-calculate Probability"),
-                     HTML("Kneser-Ney smoothing is applied to assign probability for each N-gram elements. For 1-gram, a standard count probability is applied."),
-                     h4("Output"),
-                     HTML("The produced N-gram is ordered by highest probability and saved to R data files, loaded by this App when initializing.")
+                     h4(":: Generate N-Grams ::"),
+                     HTML("1, 2, 3, and 4 grams are produced using R package <code>quanteda</code>."),
+                     h4(":: Pre-calculate Probability ::"),
+                     HTML("Kneser-Ney smoothing is applied to assign probability for each N-gram elements. 
+                          For 1-gram, a standard count probability is applied.  The results are ordereded by highest-to-lowest probability.
+                          This pre-calculation is very time consuming, requiring around 4 days (using Intel i5-4250U processor)."),
+                     h4(":: Output ::"),
+                     HTML("The produced N-grams are saved to R data files, loaded by this App when initializing.")
                      
                   ),
                   tabPanel("App Flow",
                       h3("Introduction"),
                       hr(),
                       
-                      h3("Flow"),
+                      h3("Process Flow"),
                       img(src="AppFlow.png"),
                       hr(),
                       
                       h3("Description"),
-                      h4("Input"),
+                      h4(":: Input ::"),
                       HTML("When this App is first started, N-Gram with pre-calculated probabilities are loaded as part of an initialization routine."),
                       HTML("The App then waits for user to input phrase into the textbox."),
-                      h4("Condition"),
+                      h4(":: Condition ::"),
                       HTML("The user inputted phrase is then cleaned by changing to lower case, and removing ingored words,
                          then split into words based on space as the separator."),
                       HTML("If the final word is followed by a space, then the App will try to predict the next whole word."),
                       HTML("If the final word is not followed by a space, the App assumes that the user is in a midst of typing a word, and will try to auto-complete the word."),
-                      h4("Prediction/Auto-complete"),
+                      h4(":: Prediction/Auto-complete ::"),
                       HTML("The prediction and auto-complete will attempt to use as much of the already inputted words to perform prediction using Backoff method, where
-                         higher order N-Gram is prioritized before backing-off to lower order N-Gram until up to 20 matches are found (in case of duplicated predictions)"),
-                      h4("Output"),
+                         higher order N-Gram is prioritized before backing-off to lower order N-Gram until up to 20 matches are found (in case of duplicated predictions)."),
+                      h4(":: Output ::"),
                       HTML("First 10 unique word predictions will then be displayed on the App as output to the user.")
                   
                   )
@@ -155,6 +161,13 @@ server <- shinyServer(function(input, output) {
    
    output$status <- renderUI({HTML("<p style='color:green'>Ready!")})
    
+   output$source <- renderUI({
+      HTML(paste0("1-Gram: ", prettyNum(nrow(df.1gram),big.mark=",", scientific=FALSE), " words<br>",
+                  "2-Gram: ", prettyNum(nrow(df.2gram),big.mark=",", scientific=FALSE), " phrases<br>",
+                  "3-Gram: ", prettyNum(nrow(df.3gram),big.mark=",", scientific=FALSE), " phrases<br>",
+                  "4-Gram: ", prettyNum(nrow(df.4gram),big.mark=",", scientific=FALSE), " phrases<br>"))
+   })
+   
    output$prediction <- renderUI({
       
       if (nchar(gsub(" ", "", input$inputText))>0) {
@@ -162,22 +175,22 @@ server <- shinyServer(function(input, output) {
          if (grepl("*[[:space:]]$", input$inputText)) {
             # input text ends with a space, so predict next word
             df.predict <- fun.predictnext(input$inputText, autocomplete=FALSE, n=input$numberPredict)
-            type <- "Next word prediction."
+            type <- "Next word prediction"
             
          } else {
             # input text does not end with a space, so predict auto-complete word
             df.predict <- fun.predictnext(input$inputText, autocomplete=TRUE, n=input$numberPredict)
-            type <- "Auto-complete."
+            type <- "Auto-complete"
          }
-         df.predict <- df.predict[! is.na(df.predict$Term1),]
+         df.predict <- df.predict[! is.na(df.predict$Term),]
          df.predict$Row <- row.names(df.predict)
-         df.predict <- df.predict[, c("Row", "Term1", "NGramLevel","Prob_KN")]
+         df.predict <- df.predict[, c("Row", "Term.3", "Term.2", "Term.1", "Term", "Source","Probability")]
          ptm2 <- proc.time()
          a <- ptm2 - ptm
          output$prediction2 <- renderDataTable(df.predict)
-         txtPredict = paste0("<code>", df.predict$Term1, "</code>")
+         txtPredict = paste0("<code>", df.predict$Term, "</code>")
          txtPredict = paste0(txtPredict, sep = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", collapse="")
-         output$status2 <- renderUI({HTML(paste0("<p>Mode: ", type, "<p>Computation time: ", round(as.numeric(a[3]),2), " seconds.</p>"))})
+         output$status2 <- renderUI({HTML(paste0("<p>Input: ", input$inputText, "<p>Mode: ", type, "<p>Computation time: ", round(as.numeric(a[3]),2), " seconds</p>"))})
          HTML(paste0("<p>&nbsp;<p>", txtPredict))
       }
       

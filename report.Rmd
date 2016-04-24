@@ -1,0 +1,159 @@
+---
+title: "Data Science Capstone Milestone Report - Exploratory Analysis"
+author: "Hiroto Miyake"
+date: "March 19, 2016"
+output: html_document
+---
+
+## 1. Background
+
+This capstone project will focus on applying data science in the area of natural language processing.  The task will be to analyze data from a corpus called HC Corpora (<a href="http://wwww.corpora.heliohost.org/">www.corpora.heliohost.org</a>), then develop a Shiny application that will predict the next word based on inputted word or a phase.
+
+This milestone report describes initial exploratory analysis of the HC Corpora dataset to plan the development of a prediction model and application.
+
+## 2. About the Data Set
+
+The data in zipped file can be downloaded <a href="https://eventing.coursera.org/api/redirectStrict/LwFp1Vg91C_eP_zIoi_j_91Knk88VHLLvMcKIpQjTIjrr_AJQS1UG13v52sp6O0OqvnI7Rtbtabre9qK9XlIbA.DKQiyG_Ddt-NZSaNmevDig.5zdhjuvJ_49KS3ghVb4jePgajqoc3Iq4MwhYfgUbpulX_QH4DrzE20dB3ENIGO30oDbARhbiM4N3LP8sPCxKQ7v1gMVRBeJdnon3JBK941S9wbHjG0vJbfR4xEELGsDztTqQQV2w4r7LsFMQaU3ne4OXCIqp39d-_0sd0Z55r6toN3qWp_jDENyRkFWi-qDMcIrvWp0p7LX9WN8DM-fwuMxDIfSomcINGCG1uibcG_PdeV_oklBe7pNhQwr96r0RbhUpUP8FUHxTQmEcsdcLt28WyQWu6aWwakF5FL-BBsWbCc3eXZUnaAqR7sQwEmdopiiSoXsx4k0tw8RUwOHn3ia8IY7HbcH0jchN-CpVl4lQ2r5y8EcG46u4U9zyUYNV6OvR1tqzr-SjEI0_Sy_JtB4MvoFofAdgVWPI90h-EIM">here</a> (548MB).  
+
+This data set consists of English, German, French, and Russian languages.  For this project, only the English set will be used, and this R script assumes that 3 files, `en_US.blog.txt`, `en_US.news.txt`, `en_US.twitter.txt`, are located in R working directory.
+
+Load required packages:
+```{r library, message=FALSE}
+library(knitr)     # required to use `kable` function
+library(tm)        # required to perform text mining analysis
+library(RWeka)     # required to perform n-gram tolkenization
+library(wordcloud) # required to craete Wordcloud visuals
+library(ggplot2)   # required to make standard charts
+library(gridExtra) # required to make multiple grid plots using ggplot2
+```
+
+Display summary table for the data:
+```{r basic}
+filename.blog    <- paste(getwd(),"/en_US.blogs.txt", sep="")
+filename.news    <- paste(getwd(),"/en_US.news.txt", sep="")
+filename.twitter <- paste(getwd(),"/en_US.twitter.txt", sep="")
+
+dl.blog    <- readLines(filename.blog, warn=FALSE)
+dl.news    <- readLines(filename.news, warn=FALSE)
+dl.twitter <- readLines(filename.twitter, warn=FALSE)
+
+words.blog    <- strsplit(dl.blog, " ")
+words.news    <- strsplit(dl.news, " ")
+words.twitter <- strsplit(dl.twitter, " ")
+
+basic.info <- data.frame(filename  = c(basename(filename.blog), 
+                                       basename(filename.news), 
+                                       basename(filename.twitter)),
+                         filesize  = c(file.size(filename.blog)/1024/1024,
+                                       file.size(filename.news)/1024/1024,
+                                       file.size(filename.twitter)/1024/1024),
+                         linecount = c(length(dl.blog),
+                                       length(dl.news),
+                                       length(dl.twitter)),
+                         wordcount = c(sum(sapply(words.blog, FUN=length, simplify=TRUE)),
+                                       sum(sapply(words.news, FUN=length, simplify=TRUE)),
+                                       sum(sapply(words.twitter, FUN=length, simplify=TRUE))))
+
+kable(x=basic.info, col.names=c("Filename", "File Size (MB)", "Line Count", "Word Count"), digits=1)
+
+rm(words.blog, words.news, words.twitter, basic.info) # free up memory usage
+```
+
+Since data contents are large, we will process a smaller subset of the data for analysis to keep process time and memory usage within management level.
+
+```{r sample}
+samplesize <- 10000 
+
+set.seed(12345)
+
+dl <- sample(c(dl.blog, dl.news, dl.twitter), size=samplesize, replace=TRUE)
+```
+
+## 3. Aggregating and Cleaning Data
+
+`tm` package will be used to aggregate the data into a text corpus, a large structured set of texts.
+
+```{r corpus}
+corpus <- Corpus(VectorSource(dl))
+```
+
+Transformations are then applied to clean the data to:
+* remove numbers
+* remove punctuations
+* convert to all lowercase
+* remove whitespace
+
+```{r clean}
+corpus <- tm_map(corpus, removeNumbers)
+corpus <- tm_map(corpus, removePunctuation)
+corpus <- tm_map(corpus, content_transformer(tolower))
+corpus <- tm_map(corpus, stripWhitespace)
+```
+
+The cleaned corpus will be tokenized to form n-gram models to complete the aggregation process.  Here, we will produce 1-gram, 2-gram, and 3-gram.
+
+``` {r n-gram}
+tokenizer.unigram <- function(x) NGramTokenizer(x, Weka_control(min=1, max=1))
+tokenizer.bigram  <- function(x) NGramTokenizer(x, Weka_control(min=2, max=2))
+tokenizer.trigram <- function(x) NGramTokenizer(x, Weka_control(min=3, max=3))
+
+tdm.unigram <- TermDocumentMatrix(corpus, control=list(tokenize=tokenizer.unigram))
+tdm.bigram  <- TermDocumentMatrix(corpus, control=list(tokenize=tokenizer.bigram))
+tdm.trigram <- TermDocumentMatrix(corpus, control=list(tokenize=tokenizer.trigram))
+   
+tdm.unigram <- removeSparseTerms(tdm.unigram, sparse=0.99)
+tdm.bigram <- removeSparseTerms(tdm.bigram, sparse=0.99)
+tdm.trigram <- removeSparseTerms(tdm.trigram, sparse=0.999)
+```
+
+## 4. Visualizing Data
+
+### Histogram of top 25 words or phrases
+``` {r histogram}
+freq.unigram <- sort(rowSums(as.matrix(tdm.unigram)), decreasing=TRUE)
+freq.unigram <- data.frame(word=names(freq.unigram), freq=freq.unigram)
+
+freq.bigram <- sort(rowSums(as.matrix(tdm.bigram)), decreasing=TRUE)
+freq.bigram <- data.frame(word=names(freq.bigram), freq=freq.bigram)
+
+freq.trigram <- sort(rowSums(as.matrix(tdm.trigram)), decreasing=TRUE)
+freq.trigram <- data.frame(word=names(freq.trigram), freq=freq.trigram)
+
+p1 <- ggplot(freq.unigram[1:25,], aes(x=reorder(word, freq), y=freq)) +
+             geom_bar(stat="identity") + coord_flip() +
+             labs(title="Unigram: Top 25", y="# occurance", x="unigram word")
+
+p2 <- ggplot(freq.bigram[1:25,], aes(x=reorder(word, freq), y=freq)) +
+             geom_bar(stat="identity") + coord_flip() +
+             labs(title="Bigram: Top 25", y="# occurance", x="bigram phrase")
+
+p3 <- ggplot(freq.trigram[1:25,], aes(x=reorder(word, freq), y=freq)) +
+             geom_bar(stat="identity") + coord_flip() +
+             labs(title="Trigram: Top 25", y="# occurance", x="trigram phrase")
+grid.arrange(p1, p2, p3, ncol=3)
+```
+
+### Wordcloud visualization
+
+Below is a Wordcloud visualization of top 50 unigram
+``` {r wordcloud1, warning=FALSE}
+wordcloud(words=freq.unigram$word, freq=freq.unigram$freq, max.words=50, scale=c(5, 1), colors=brewer.pal(8, "Dark2"))
+```
+
+Below is a Wordcloud visualization of top 50 bigram
+``` {r wordcloud2, warning=FALSE}
+wordcloud(words=freq.bigram$word, freq=freq.bigram$freq, max.word=50, scale=c(5, 1), colors=brewer.pal(8, "Dark2"))
+```
+
+Below is a Wordcloud visualization of top 50 trigram
+``` {r wordcloud3, warning=FALSE}
+wordcloud(words=freq.trigram$word, freq.trigram$freq, max.word=50, scale=c(5, 1), colors=brewer.pal(8, "Dark2"))
+```
+
+## 5. Next Steps
+
+Next step will be to:
+
+1. build a prediction model using the n-gram analysis as demonstrated above,
+2. build a data product with front-end user interface in Shiny application framework, and
+3. tune the prediction performance to balance between speed and accuracy.
