@@ -3,10 +3,18 @@
 library(tm)        # required to tm_map function
 library(stringr)   # required to split phrases into individual words
 
+progress <- shiny::Progress$new()
+
+progress$set(message="Initializing: ", value=0)
+progress$inc(0/100, detail="Loading 1Gram")
 df.1gram <- readRDS(file="NGram1.rds")
+progress$inc(1/100, detail="Loading 2-Gram")
 df.2gram <- readRDS(file="NGram2.rds")
+progress$inc(32/100, detail="Loading 3-Gram")
 df.3gram <- readRDS(file="NGram3.rds")
+progress$inc(66/100, detail="Loading 4-Gram")
 df.4gram <- readRDS(file="NGram4.rds")
+progress$inc(98/100, detail="Loading prediction function")
 
 ignore_words <- c("a","an","the","and","to","of","at","in","on","from")
 
@@ -97,3 +105,5 @@ fun.predictnext <- function(input, autocomplete = FALSE, n=5) {
    
    return(df.predict)
 }
+
+on.exit(progress$close())

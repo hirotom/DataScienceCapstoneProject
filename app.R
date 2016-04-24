@@ -174,6 +174,8 @@ ui <- shinyUI(navbarPage("What's My Next Word App!",
 # Define server logic
 server <- shinyServer(function(input, output) {
    
+   # Create progressbar object
+   
    source(file="PredictNextWord.R")
    
    output$status <- renderUI({HTML("<p style='color:green'>Ready!")})
