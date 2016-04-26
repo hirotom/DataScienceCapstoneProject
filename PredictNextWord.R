@@ -10,11 +10,11 @@ progress$inc(0/100, detail="Loading 1Gram")
 df.1gram <- readRDS(file="NGram1.rds")
 progress$inc(1/100, detail="Loading 2-Gram")
 df.2gram <- readRDS(file="NGram2.rds")
-progress$inc(32/100, detail="Loading 3-Gram")
+progress$inc(30/100, detail="Loading 3-Gram")
 df.3gram <- readRDS(file="NGram3.rds")
-progress$inc(66/100, detail="Loading 4-Gram")
+progress$inc(60/100, detail="Loading 4-Gram")
 df.4gram <- readRDS(file="NGram4.rds")
-progress$inc(98/100, detail="Loading prediction function")
+progress$inc(91/100, detail="Loading prediction function")
 
 ignore_words <- c("a","an","the","and","to","of","at","in","on","from")
 
@@ -94,7 +94,7 @@ fun.predictnext <- function(input, autocomplete = FALSE, n=5) {
    # 1-gram prediction (for autocomplete only)
    if (nrow(df.input) >=1  & nrow(df.predict) < (2*n) & autocomplete==TRUE) {
       df.1predict <- df.1gram[grepl(df.input$Term[nrow(df.input)], df.1gram$Term1),]
-      df.1predict <- df.1predict[! df.1predict$Term1 %in% df.predict$Term1,]
+      df.1predict <- df.1predict[! df.1predict$Term1 %in% df.predict$Term,]
       df.predict <- rbind(df.predict, data.frame('Term.3'    = rep("", nrow(df.1predict)), 
                                                  'Term.2'    = rep("", nrow(df.1predict)), 
                                                  'Term.1'    = rep("", nrow(df.1predict)), 

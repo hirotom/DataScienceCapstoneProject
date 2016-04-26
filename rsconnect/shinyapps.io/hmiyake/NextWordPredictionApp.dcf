@@ -2,8 +2,8 @@ name: NextWordPredictionApp
 account: hmiyake
 server: shinyapps.io
 appId: 97105
-bundleId: 431396
+bundleId: 434360
 url: https://hmiyake.shinyapps.io/NextWordPredictionApp/
-when: 1461473753.88627
+when: 1461650043.61064
 asMultiple: FALSE
 asStatic: FALSE
